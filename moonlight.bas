@@ -73,6 +73,8 @@ GOTO playgame
 
 updatechecker:
 REM checks for update
+IF ros$ = "win" THEN SHELL _HIDE "del checkupdate.ddf"
+IF ros$ = "mac" OR ros$ = "lnx" THEN SHELL _HIDE "rm checkupdate.ddf"
 LET downloadfilename$ = "checkupdate.ddf"
 LET downloadfilelink$ = checkupdatelink$
 GOSUB filedownloader
@@ -119,7 +121,7 @@ LET eventtitle$ = "DOWNLOAD REQUEST:"
 LET eventdata$ = downloadfilename$
 LET eventnumber = autoupdate
 GOSUB consoleprinter
-IF autoupdate = 1 OR autoupdate = 2 THEN
+IF autoupdate = 1 OR autoupdate = 2 OR autoupdate = 666 THEN
 	REM normal download
 	SHELL _HIDE "curl -L -o " + downloadfilename$ + " " + downloadfilelink$
 END IF
