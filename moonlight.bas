@@ -13,7 +13,7 @@ LET screenmode = 2: REM sets value for screen mode
 LET resx = 512: REM game x resolution
 LET resy = 288: REM game y resolution
 LET dloc$ = "moondata/": REM game data folder
-LET autoupdate = 2: REM sets auto update value
+LET autoupdate = 666: REM sets auto update value
 LET checkupdatelink$ = "https://github.com/pforpond/Alive-By-Moonlight/raw/main/update/checkupdate.ddf"
 LET versionno$ = "0.1"
 _ALLOWFULLSCREEN _OFF: REM block alt-enter
@@ -99,7 +99,6 @@ IF downloadresult = 0 THEN RETURN
 REM writes updater file
 LET title$ = "moonlight"
 LET filename$ = "moonlight"
-LET readmecheck = 666
 LET engineversionno$ = versionno$
 OPEN "updatevals.ddf" FOR OUTPUT AS #1
 WRITE #1, versionno$, engineversionno$, installtype, title$, filename$, dloc$, mloc$, ploc$, floc$, sloc$, oloc$, scriptloc$, museloc$, sfxloc$, pocketloc$, uiloc$, tloc$, aloc$, menuloc$, downloadicon$, downloadiconresx, downloadiconresy, autoupdate, updatekey$
