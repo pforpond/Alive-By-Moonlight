@@ -13,6 +13,9 @@ LET screenmode = 2: REM sets value for screen mode
 LET resx = 512: REM game x resolution
 LET resy = 288: REM game y resolution
 LET dloc$ = "moondata/": REM game data folder
+LET autoupdate = 2: REM sets auto update value
+LET checkupdatelink$ = "https://github.com/pforpond/Alive-By-Moonlight/raw/main/update/checkupdate.ddf"
+LET versionno$ = "0.1"
 _ALLOWFULLSCREEN _OFF: REM block alt-enter
 REM check os
 IF INSTR(_OS$, "[WINDOWS]") THEN LET ros$ = "win"
@@ -36,6 +39,8 @@ REM sets up game screen
 GOSUB screenmode
 _PRINTMODE _FILLBACKGROUND
 PRINT "WAIT..."
+REM checks for updates
+GOSUB updatechecker
 REM loads assets
 GOSUB assetload
 REM main menu
@@ -65,6 +70,86 @@ GOSUB generatemap
 GOSUB setplayerlocation
 LET setupboot = 0
 GOTO playgame
+
+updatechecker:
+REM checks for update
+LET downloadfilename$ = "checkupdate.ddf"
+LET downloadfilelink$ = checkupdatelink$
+GOSUB filedownloader
+IF downloadresult = 0 THEN RETURN
+OPEN "checkupdate.ddf" FOR INPUT AS #1
+INPUT #1, newversionno$, updaterlinklnx$, updaterlinkmac$, updaterlinkwin$, downloadlink$, windownload$, lnxdownload$, macdownload$, unziplink$, updatetype, updatefolder$, updatewinexe$, updatelinuxexe$, updatemacexe$, updatereadme$, updatechangelog$, updatemanual$, updatesource$, updateupdatersource$, updateupdaterzip2$, updateupdaterzip$
+CLOSE #1
+IF newversionno$ = versionno$ THEN RETURN
+IF ros$ = "mac" THEN
+	LET downloadfilename$ = updateupdaterzip$ + "_macos"
+    LET downloadfilelink$ = updaterlinkmac$
+END IF
+IF ros$ = "lnx" THEN
+    LET downloadfilename$ = updateupdaterzip$ + "_linux"
+    LET downloadfilelink$ = updaterlinklnx$
+END IF
+IF ros$ = "win" THEN
+    LET downloadfilename$ = updateupdaterzip$ + "_win.exe"
+    LET downloadfilelink$ = updaterlinkwin$
+END IF
+LET temp29$ = downloadfilename$
+GOSUB filedownloader
+IF downloadresult = 0 THEN RETURN
+REM writes updater file
+LET title$ = "moonlight"
+LET filename$ = "moonlight"
+LET readmecheck = 666
+LET engineversionno$ = versionno$
+OPEN "updatevals.ddf" FOR OUTPUT AS #1
+WRITE #1, versionno$, engineversionno$, installtype, title$, filename$, dloc$, mloc$, ploc$, floc$, sloc$, oloc$, scriptloc$, museloc$, sfxloc$, pocketloc$, uiloc$, tloc$, aloc$, menuloc$, downloadicon$, downloadiconresx, downloadiconresy, autoupdate, updatekey$
+CLOSE #1
+LET eventtitle$ = "UPDATE FOUND:"
+LET eventdata$ = versionno$ + " -> " + newversionno$
+LET eventnumber = 0
+GOSUB consoleprinter
+IF ros$ = "lnx" OR ros$ = "mac" THEN SHELL _HIDE "chmod +x " + temp29$: SHELL _DONTWAIT "./" + temp29$
+IF ros$ = "win" THEN SHELL _DONTWAIT temp29$
+_SCREENHIDE
+SYSTEM
+
+filedownloader:
+REM downloads a requested file
+LET downloadresult = 0
+LET eventtitle$ = "DOWNLOAD REQUEST:"
+LET eventdata$ = downloadfilename$
+LET eventnumber = autoupdate
+GOSUB consoleprinter
+IF autoupdate = 1 OR autoupdate = 2 THEN
+	REM normal download
+	SHELL _HIDE "curl -L -o " + downloadfilename$ + " " + downloadfilelink$
+END IF
+IF autoupdate = 3 THEN
+	REM dev download
+	IF ros$ = "mac" OR ros$ = "lnx" THEN SHELL _HIDE "curl -H 'Authorization: token " + updatekey$ + "' \-H 'Accept: application/vnd.github.v3.raw' \-O \-L " + downloadfilelink$
+	IF ros$ = "win" THEN 
+		OPEN "vamedl.bat" FOR OUTPUT AS #99
+		PRINT #99, "curl -H " + CHR$(34) + "Authorization: token " + updatekey$ + CHR$(34) + " ^-H " + CHR$(34) + "Accept: application/vnd.github.v3.raw" + CHR$(34) + " ^-O ^-L " + downloadfilelink$
+		CLOSE #99
+		SHELL _HIDE "vamedl.bat"
+		SHELL _HIDE "del vamedl.bat"
+	END IF
+END IF
+REM checks if download worked
+IF _FILEEXISTS(downloadfilename$) THEN LET downloadresult = 1
+REM tells console
+IF downloadresult = 1 THEN
+	LET eventtitle$ = "DOWNLOAD COMPLETE:"
+ELSE
+	LET eventtitle$ = "DOWNLOAD FAILED:"
+END IF
+LET eventdata$ = downloadfilename$
+LET eventnumber = downloadresult
+GOSUB consoleprinter
+REM clears temp values
+LET downloadfilename$ = ""
+LET downloadfilelink$ = ""
+RETURN
 
 setplayerlocation:
 REM sets players location
