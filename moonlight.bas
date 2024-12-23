@@ -15,7 +15,7 @@ LET resy = 288: REM game y resolution
 LET dloc$ = "moondata/": REM game data folder
 LET autoupdate = 666: REM sets auto update value
 LET checkupdatelink$ = "https://github.com/pforpond/Alive-By-Moonlight/raw/main/update/checkupdate.ddf"
-LET versionno$ = "0.1.1"
+LET versionno$ = "0.1.2"
 _ALLOWFULLSCREEN _OFF: REM block alt-enter
 REM check os
 IF INSTR(_OS$, "[WINDOWS]") THEN LET ros$ = "win"
@@ -203,7 +203,6 @@ LET maptilex = 25: REM number of tiles on map (x)
 LET maptiley = 25: REM number of tiles on map (y)
 LET beconno = 7: REM number of becons
 LET beconexit = 5: REM number of becons to complete
-LET beconexit = 2
 LET trapno = 8: REM number of traps
 LET exitno = 2: REM number of exits
 LET herotrapno = 0: REM number of demons hero has trapped
@@ -220,7 +219,6 @@ LET heromovetotal = 4: REM total number of moves per turn for heros
 LET demonmovetotal = 3: REM total number of moves per turn for demons
 LET exitgatetimertotal = 10: REM total number of moves needed to open exit gate
 LET endgamecollapsetotal = 30: REM total number of turns during the endgame collapse
-LET endgamecollapsetotal = 5
 LET demonscore = 0: REM sets demon score
 LET heroscore = 0: REM sets hero score
 LET turn = 1: REM turn number

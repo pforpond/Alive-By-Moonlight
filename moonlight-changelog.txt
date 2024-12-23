@@ -1,6 +1,11 @@
 ALIVE BY MOONLIGHT!
 by Studio Pond
 
+23/12/2024 - Update 0.1.2
+BUG FIXES
+- Fixed an issue where amount of Becons for Demons to destroy was only set at 2 instead of 5.
+- Fixed an issue where the amount of turns available during the end game collapse was set to 5 instead of 30.
+
 23/12/2024 - Update 0.1.1
 NEW FEATURES
 - Added trapdoor mechanics.
