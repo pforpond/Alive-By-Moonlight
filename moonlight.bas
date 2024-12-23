@@ -8,14 +8,14 @@ RANDOMIZE TIMER
 LET setupboot = 1: REM sets value for engine booting
 LET hertz = 30
 LET title$ = "Alive By Moonlight"
-LET devmode = 1: REM sets value for developer mode
+LET devmode = 0: REM sets value for developer mode
 LET screenmode = 2: REM sets value for screen mode
 LET resx = 512: REM game x resolution
 LET resy = 288: REM game y resolution
 LET dloc$ = "moondata/": REM game data folder
 LET autoupdate = 666: REM sets auto update value
 LET checkupdatelink$ = "https://github.com/pforpond/Alive-By-Moonlight/raw/main/update/checkupdate.ddf"
-LET versionno$ = "0.1"
+LET versionno$ = "0.1.1"
 _ALLOWFULLSCREEN _OFF: REM block alt-enter
 REM check os
 IF INSTR(_OS$, "[WINDOWS]") THEN LET ros$ = "win"
@@ -61,6 +61,7 @@ DIM demonmessage1(100) AS STRING
 DIM demonmessage2(100) AS STRING
 DIM demonmessage3(100) AS STRING
 DIM demonmessage4(100) AS STRING
+DIM heromessage(100) AS STRING
 DIM exitlevel(2) AS INTEGER
 DIM exittile(2) AS INTEGER
 GOSUB generategamevalues
@@ -202,6 +203,7 @@ LET maptilex = 25: REM number of tiles on map (x)
 LET maptiley = 25: REM number of tiles on map (y)
 LET beconno = 7: REM number of becons
 LET beconexit = 5: REM number of becons to complete
+LET beconexit = 2
 LET trapno = 8: REM number of traps
 LET exitno = 2: REM number of exits
 LET herotrapno = 0: REM number of demons hero has trapped
@@ -217,6 +219,8 @@ LET gamestatus = 1: REM game status. 1 = main game. 2 = end game. 3 = end game c
 LET heromovetotal = 4: REM total number of moves per turn for heros
 LET demonmovetotal = 3: REM total number of moves per turn for demons
 LET exitgatetimertotal = 10: REM total number of moves needed to open exit gate
+LET endgamecollapsetotal = 30: REM total number of turns during the endgame collapse
+LET endgamecollapsetotal = 5
 LET demonscore = 0: REM sets demon score
 LET heroscore = 0: REM sets hero score
 LET turn = 1: REM turn number
@@ -283,7 +287,7 @@ PRINT "DEMON SCORE: " + LTRIM$(STR$(demonscore))
 PRINT
 IF heroscore > demonscore THEN PRINT "HERO WINS!"
 IF demonscore > heroscore THEN PRINT "DEMONS WIN!"
-IF heroscore = demonscore THEN PRINT "DRAW!"
+IF heroscore = demonscore THEN PRINT "NOBODY WINS!"
 END
 
 nextplayer:
@@ -298,7 +302,7 @@ IF turncomplete = 1 THEN
 		IF demonstatus(x) = 8 THEN LET y = y + 1
 	NEXT x
 	IF y => 4 THEN GOTO endgame
-	IF playerturn < 5 THEN 
+	IF playerturn < 5 THEN
 		IF demonstatus(playerturn) = 6 THEN
 			REM checks if final struggle happened
 			IF demontraptime(playerturn) => trapstagelength THEN LET demonrecover(playerturn) = 0
@@ -332,8 +336,20 @@ IF turncomplete = 1 THEN
 				LET eventdata$ = ""
 				LET eventnumber = 0
 				GOSUB consoleprinter
+				REM displays messages
 				LET message$ = "You have died"
 				GOSUB displaymessage
+				LET heromessagetotal = heromessagetotal + 1
+				LET heromessage$(heromessagetotal) = demonname$(playerturn) + " has died"
+				FOR xx = 1 TO 4
+					LET demonmessage(xx) = demonmessage(xx) + 1
+					IF xx = 1 THEN LET demonmessage1$(demonmessage(xx)) = demonname$(playerturn) + " has died"
+					IF xx = 2 THEN LET demonmessage2$(demonmessage(xx)) = demonname$(playerturn) + " has died"
+					IF xx = 3 THEN LET demonmessage3$(demonmessage(xx)) = demonname$(playerturn) + " has died"
+					IF xx = 4 THEN LET demonmessage4$(demonmessage(xx)) = demonname$(playerturn) + " has died"
+				NEXT xx
+				REM spaws trapdoor
+				IF heroscore + demonscore = 3 THEN GOSUB spawntrapdoor
 			END IF
 		END IF
 		IF demonstatus(playerturn) = 5 THEN
@@ -354,7 +370,26 @@ IF turncomplete = 1 THEN
 	REM changes player 
 	LET playerturn = playerturn + 1
 	LET turncomplete = 0
-	IF playerturn >= 6 THEN LET playerturn = 1: LET turn = turn + 1: REM loops values, starts new turn
+	IF playerturn >= 6 THEN 
+		REM tasks for when all players have completed their turns
+		LET playerturn = 1
+		LET turn = turn + 1
+		IF gamestatus = 3 THEN 
+			REM end game collapse counter
+			LET endgamecollapseturns = endgamecollapseturns + 1
+			IF endgamecollapsetotal - endgamecollapseturns < 0 THEN
+				REM end game collapse is over! kill all remaining demons!
+				FOR x = 1 TO 4
+					IF demonstatus(x) <> 8 THEN LET demonstatus(x) = 7: LET heroscore = heroscore + 1
+				NEXT x
+				GOTO endgame
+			END IF
+			LET eventtitle$ = "END GAME COLLAPSE:"
+			LET eventdata$ =  LTRIM$(STR$(endgamecollapseturns)) + "/" + LTRIM$(STR$(endgamecollapsetotal)) + " turns remain"
+			LET eventnumber = 0
+			GOSUB consoleprinter
+		END IF
+	END IF
 	IF playerturn <> 5 THEN IF demonstatus(playerturn) = 7 OR demonstatus(playerturn) = 8 THEN LET turncomplete = 1: GOTO nextplayer: REM demon is dead, move on
 	LET locx = playerlocx(playerturn)
 	LET locy = playerlocy(playerturn)
@@ -364,6 +399,15 @@ IF turncomplete = 1 THEN
 	ELSE
 		IF demonstatus(playerturn) = 1 OR demonstatus(playerturn) = 2 THEN LET turnmoves = demonmovetotal
 		IF demonstatus(playerturn) >= 3 THEN LET turnmoves = 1
+	END IF
+	IF gamestatus = 3 THEN
+		REM counts down turns remaining in end game collapse
+		IF playerturn < 5 THEN LET demonmessage(playerturn) = demonmessage(playerturn) + 1
+		IF playerturn = 1 THEN LET demonmessage1$(demonmessage(playerturn)) = "end game collapse " + LTRIM$(STR$(endgamecollapseturns)) + "/" + LTRIM$(STR$(endgamecollapsetotal))
+		IF playerturn = 2 THEN LET demonmessage2$(demonmessage(playerturn)) = "end game collapse " + LTRIM$(STR$(endgamecollapseturns)) + "/" + LTRIM$(STR$(endgamecollapsetotal))
+		IF playerturn = 3 THEN LET demonmessage3$(demonmessage(playerturn)) = "end game collapse " + LTRIM$(STR$(endgamecollapseturns)) + "/" + LTRIM$(STR$(endgamecollapsetotal))
+		IF playerturn = 4 THEN LET demonmessage4$(demonmessage(playerturn)) = "end game collapse " + LTRIM$(STR$(endgamecollapseturns)) + "/" + LTRIM$(STR$(endgamecollapsetotal))
+		IF playerturn = 5 THEN LET heromessagetotal = heromessagetotal + 1: LET heromessage$(heromessagetotal) = "end game collapse " + LTRIM$(STR$(endgamecollapseturns)) + "/" + LTRIM$(STR$(endgamecollapsetotal))
 	END IF
 	REM tells console 
 	IF playerturn <> 5 THEN 
@@ -379,7 +423,7 @@ END IF
 RETURN
 
 startendgame:
-REM begins the end game part of the game once enough becons are destoryed
+REM begins the end game part of the game once enough becons are destroyed
 LET gamestatus = 2
 LET x = 0
 DO
@@ -387,6 +431,9 @@ DO
 	IF maptiletype(x) = 2 THEN LET maptiletype(x) = 3
 	IF maptiletype(x) = 11 THEN LET maptiletype(x) = 32
 LOOP UNTIL x = (maptilex * maptiley)
+FOR x = 1 TO beconno
+	LET becontile(x) = -1
+NEXT x
 LET eventtitle$ = "BECONS DESTORYED:"
 LET eventdata$ = "end game stage begins"
 LET eventnumber = 0
@@ -397,6 +444,30 @@ FOR xx = 1 TO 4
 	IF xx = 2 THEN LET demonmessage2$(demonmessage(xx)) = "exits are now available"
 	IF xx = 3 THEN LET demonmessage3$(demonmessage(xx)) = "exits are now available"
 	IF xx = 4 THEN LET demonmessage4$(demonmessage(xx)) = "exits are now available"
+NEXT xx
+LET heromessagetotal = heromessagetotal + 1
+LET heromessage$(heromessagetotal) = "exits are now available"
+RETURN
+
+spawntrapdoor:
+REM adds trapdoor
+LET x = 0
+DO
+	LET x = INT(RND * (maptilex * maptiley)) + 1
+LOOP UNTIL maptiletype(x) = 1
+LET maptiletype(x) = 33
+LET eventtitle$ = "TRAPDOOR:"
+LET eventdata$ = "trapdoor is now open"
+LET eventnumber = 0
+GOSUB consoleprinter
+LET heromessagetotal = heromessagetotal + 1
+LET heromessage$(heromessagetotal) = "trapdoor is now open"
+FOR xx = 1 TO 4
+	LET demonmessage(xx) = demonmessage(xx) + 1
+	IF xx = 1 THEN LET demonmessage1$(demonmessage(xx)) = "trapdoor is now open"
+	IF xx = 2 THEN LET demonmessage2$(demonmessage(xx)) = "trapdoor is now open"
+	IF xx = 3 THEN LET demonmessage3$(demonmessage(xx)) = "trapdoor is now open"
+	IF xx = 4 THEN LET demonmessage4$(demonmessage(xx)) = "trapdoor is now open"
 NEXT xx
 RETURN
 
@@ -419,21 +490,32 @@ LOOP
 
 displaystartmessage:
 REM displays a message upon turn start
-IF playerturn = 5 THEN RETURN
-'IF turnmoves < demonmovetotal THEN RETURN
-IF demonmessage(playerturn) = 0 THEN RETURN
-FOR t = 1 TO demonmessage(playerturn)
-	IF playerturn = 1 THEN LET message$ = demonmessage1$(t)
-	IF playerturn = 2 THEN LET message$ = demonmessage2$(t)
-	IF playerturn = 3 THEN LET message$ = demonmessage3$(t)
-	IF playerturn = 4 THEN LET message$ = demonmessage4$(t)
-	GOSUB displaymessage
-	IF playerturn = 1 THEN LET demonmessage1$(t) = ""
-	IF playerturn = 2 THEN LET demonmessage2$(t) = ""
-	IF playerturn = 3 THEN LET demonmessage3$(t) = ""
-	IF playerturn = 4 THEN LET demonmessage4$(t) = ""
-NEXT t
-LET demonmessage(playerturn) = 0
+IF playerturn < 5 THEN
+	REM message for a demon
+	IF demonmessage(playerturn) = 0 THEN RETURN
+	FOR t = 1 TO demonmessage(playerturn)
+		IF playerturn = 1 THEN LET message$ = demonmessage1$(t)
+		IF playerturn = 2 THEN LET message$ = demonmessage2$(t)
+		IF playerturn = 3 THEN LET message$ = demonmessage3$(t)
+		IF playerturn = 4 THEN LET message$ = demonmessage4$(t)
+		GOSUB displaymessage
+		IF playerturn = 1 THEN LET demonmessage1$(t) = ""
+		IF playerturn = 2 THEN LET demonmessage2$(t) = ""
+		IF playerturn = 3 THEN LET demonmessage3$(t) = ""
+		IF playerturn = 4 THEN LET demonmessage4$(t) = ""
+	NEXT t
+	LET demonmessage(playerturn) = 0
+END IF
+IF playerturn = 5 THEN
+	REM message for the hero 
+	IF heromessagetotal = 0 THEN RETURN
+	FOR t = 1 TO heromessagetotal
+		LET message$ = heromessage$(t)
+		GOSUB displaymessage
+		LET heromessage$(t) = ""
+	NEXT t
+	LET heromessagetotal = 0
+END IF
 RETURN
 
 settextcolour:
@@ -552,6 +634,7 @@ IF hud = 1 THEN
 	IF turnmoves > 0 AND playerturn = 5  AND herostatus = 1 THEN 
 		IF herohitup > 0 OR herohitdown > 0 OR herohitleft > 0 OR herohitright > 0 THEN LET movelist$ = movelist$ + "H=hit | "
 		IF herograbup > 0 OR herograbdown > 0 OR herogrableft > 0 OR herograbright > 0 THEN LET movelist$ = movelist$ + "G=grab | "
+		IF herocloseup > 0 OR heroclosedown > 0 OR herocloseleft > 0 OR herocloseright > 0 THEN LET movelist$ = movelist$ ++ "C=close | "
 	END IF
 	REM hero is in grab mode
 	IF playerturn = 5 AND herostatus = 2 THEN 
@@ -609,7 +692,7 @@ IF hud = 8 THEN
 	LET movelist$ = movelist$ + "B=back"
 END IF
 IF hud = 9 THEN
-	REM demon damaging becon
+	REM demon un-trapping demon
 	IF demonuntrapup > 0 THEN LET movelist$ = movelist$ + "W=rescue up | "
 	IF demonuntrapdown > 0 THEN LET movelist$ = movelist$ + "S=rescue down | "
 	IF demonuntrapleft > 0 THEN LET movelist$ = movelist$ + "A=rescue left | "
@@ -622,6 +705,14 @@ IF hud = 10 THEN
 	IF exitopendown > 0 THEN LET movelist$ = movelist$ + "S=open exit down | "
 	IF exitopenleft > 0 THEN LET movelist$ = movelist$ + "A=open exit left | "
 	IF exitopenright > 0 THEN LET movelist$ = movelist$ + "D=open exit right | "
+	LET movelist$ = movelist$ + "B=back"
+END IF
+IF hud = 11 THEN
+	REM hero closing the trapdoor
+	IF herocloseup > 0 THEN LET movelist$ = movelist$ + "W=close trapdoor up | "
+	IF heroclosedown > 0 THEN LET movelist$ = movelist$ + "S=close trapdoor down | "
+	IF herocloseleft > 0 THEN LET movelist$ = movelist$ + "A=close trapdoor left | "
+	IF herocloseright > 0 THEN LET movelist$ = movelist$ + "D=close trapdoor right | "
 	LET movelist$ = movelist$ + "B=back"
 END IF
 _PRINTSTRING (1, resy - 15), movelist$
@@ -663,6 +754,10 @@ LET exitopendown = 0
 LET exitopenleft = 0
 LET exitopenright = 0
 LET demonexit = 0
+LET herocloseup = 0
+LET heroclosedown = 0
+LET herocloseleft = 0
+LET herocloseright = 0
 REM calculates any possible actions
 REM movement
 IF maptiletype(currenttile - 1) = 1 THEN LET moveleft = 1
@@ -724,7 +819,12 @@ IF playerturn < 5 THEN
 	IF maptiletype(currenttile - 1) = 12 THEN LET demonexit = 1
 	IF maptiletype(currenttile + 1) = 12 THEN LET demonexit = 1
 	IF maptiletype(currenttile - maptilex) = 12 THEN LET demonexit = 1
-	IF maptiletype(currenttile + maptilex) = 12 THEN LET demonexit = 1	
+	IF maptiletype(currenttile + maptilex) = 12 THEN LET demonexit = 1
+	REM checks for open trapdoor nearby
+	IF maptiletype(currenttile - 1) = 33 THEN LET demonexit = 1
+	IF maptiletype(currenttile + 1) = 33 THEN LET demonexit = 1
+	IF maptiletype(currenttile - maptilex) = 33 THEN LET demonexit = 1
+	IF maptiletype(currenttile + maptilex) = 33 THEN LET demonexit = 1	
 END IF
 REM hero moves
 IF playerturn = 5 THEN
@@ -774,6 +874,11 @@ IF playerturn = 5 THEN
 		IF maptiletype(currenttile - maptilex) = 4 THEN LET herotrapup = 1
 		IF maptiletype(currenttile + maptilex) = 4 THEN LET herotrapdown = 1
 	END IF
+	REM checks for an open trapdoor
+	IF maptiletype(currenttile - 1) = 33 THEN LET herocloseleft = 1
+	IF maptiletype(currenttile + 1) = 33 THEN LET herocloseright = 1
+	IF maptiletype(currenttile - maptilex) = 33 THEN LET herocloseup = 1
+	IF maptiletype(currenttile + maptilex) = 33 THEN LET heroclosedown = 1
 END IF
 RETURN
 
@@ -810,7 +915,8 @@ IF hud = 1 THEN
 	IF turnmoves > 0 AND playerturn = 5 THEN 
 		IF herohitup > 0 OR herohitdown > 0 OR herohitleft > 0 OR herohitright > 0 THEN IF a = 72 OR a = 104 THEN LET hud = 4: GOTO endinput
 		IF herograbup > 0 OR herograbdown > 0 OR herogrableft > 0 OR herograbright > 0 THEN IF a = 71 OR a = 103 THEN LET hud = 5: GOTO endinput
-	END IF
+		IF herocloseup > 0 OR heroclosedown > 0 OR herocloseleft > 0 OR herocloseright > 0 THEN IF a = 67 OR a = 99 THEN LET hud = 11: GOTO endinput
+	END IF	
 	IF devmode = 1 THEN IF a = 90 OR a = 122 THEN LET hud = 3: GOTO endinput: REM developer movement (destructive)
 	GOTO endinput
 END IF
@@ -900,8 +1006,39 @@ IF hud = 10 THEN
 	IF a = 66 OR a = 98 THEN LET hud = 1: REM back
 	GOTO endinput
 END IF
+IF hud = 11 THEN
+	REM hero closes the trapdoor
+	IF herocloseup > 0 THEN IF a = 87 OR a = 119 THEN GOSUB heroclosetrapdoor
+	IF heroclosedown > 0 THEN IF a = 83 OR a = 115 THEN GOSUB heroclosetrapdoor
+	IF herocloseleft > 0 THEN IF a = 65 OR a = 97 THEN GOSUB heroclosetrapdoor
+	IF herocloseright > 0 THEN IF a = 68 OR a = 100 THEN GOSUB heroclosetrapdoor
+	IF a = 66 OR a = 98 THEN LET hud = 1: REM back
+	GOTO endinput
+END IF
 endinput:
 _KEYCLEAR
+RETURN
+
+heroclosetrapdoor:
+REM hero closes the trapdoor
+IF a = 87 OR a = 119 THEN LET maptiletype(currenttile - maptilex) = 34
+IF a = 83 OR a = 115 THEN LET maptiletype(currenttile + maptilex) = 34
+IF a = 65 OR a = 97 THEN LET maptiletype(currenttile - 1) = 34
+IF a = 68 OR a = 100 THEN LET maptiletype(currenttile + 1) = 34
+LET turnmoves = 0
+LET hud = 1
+LET eventtitle$ = heroname$ + " HAS CLOSED THE TRAPDOOR"
+LET eventdata$ = ""
+LET eventnumber = 0
+GOSUB consoleprinter
+FOR xx = 1 TO 4
+	LET demonmessage(xx) = demonmessage(xx) + 1
+	IF xx = 1 THEN LET demonmessage1$(demonmessage(xx)) = "trapdoor is now closed"
+	IF xx = 2 THEN LET demonmessage2$(demonmessage(xx)) = "trapdoor is now closed"
+	IF xx = 3 THEN LET demonmessage3$(demonmessage(xx)) = "trapdoor is now closed"
+	IF xx = 4 THEN LET demonmessage4$(demonmessage(xx)) = "trapdoor is now closed"
+NEXT xx
+GOSUB startendgame
 RETURN
 
 demonexitsgame:
@@ -916,13 +1053,27 @@ LET eventnumber = 0
 GOSUB consoleprinter
 LET message$ = "you have escaped"
 GOSUB displaymessage
+LET heromessagetotal = heromessagetotal + 1
+LET heromessage$(heromessagetotal) = demonname$(playerturn) + " has escaped"
+LET x = 0
+DO
+	LET x = x + 1
+	IF x <> playerturn AND x <> 5 THEN
+		LET demonmessage(x) = demonmessage(x) + 1
+		IF x = 1 THEN LET demonmessage1$(demonmessage(x)) = demonname$(playerturn) + " has escaped"
+		IF x = 2 THEN LET demonmessage2$(demonmessage(x)) = demonname$(playerturn) + " has escaped"
+		IF x = 3 THEN LET demonmessage3$(demonmessage(x)) = demonname$(playerturn) + " has escaped"
+		IF x = 4 THEN LET demonmessage4$(demonmessage(x)) = demonname$(playerturn) + " has escaped"
+	END IF
+LOOP UNTIL x => 5
+IF demonscore + heroscore = 3 THEN GOSUB spawntrapdoor
 RETURN
 
 demonopenexit:
 REM demon opens an available exit
 IF a = 87 OR a = 119 THEN LET y = currenttile - maptilex
 IF a = 83 OR a = 115 THEN LET y = currenttile + maptilex
-IF a = 65 OR a = 97 THEN LET y = currenttile - 1
+IF a = 65 OR a =  97 THEN LET y = currenttile - 1
 IF a = 68 OR a = 100 THEN LET y = currenttile + 1
 FOR x = 1 TO 2
 	IF y = exittile(x) THEN LET xx = x
@@ -939,6 +1090,20 @@ IF exitlevel(xx) => exitgatetimertotal THEN
 	GOSUB consoleprinter
 	LET message$ = "exit " + LTRIM$(STR$(xx)) + " is now open"
 	GOSUB displaymessage
+	LET heromessagetotal = heromessagetotal + 1
+	LET heromessage$(heromessagetotal) = "exit " + LTRIM$(STR$(xx)) + " is now open"
+	LET xxx = 0
+	DO
+		LET xxx = xxx + 1
+		IF xxx <> currentplayer AND xxx <> 5 THEN
+			LET demonmessage(xxx) = demonmessage(xxx) + 1
+			IF xxx = 1 THEN LET demonmessage1$(demonmessage(xxx)) = "exit " + LTRIM$(STR$(xx)) + " is now open"
+			IF xxx = 2 THEN LET demonmessage2$(demonmessage(xxx)) = "exit " + LTRIM$(STR$(xx)) + " is now open"
+			IF xxx = 3 THEN LET demonmessage3$(demonmessage(xxx)) = "exit " + LTRIM$(STR$(xx)) + " is now open"
+			IF xxx = 4 THEN LET demonmessage4$(demonmessage(xxx)) = "exit " + LTRIM$(STR$(xx)) + " is now open"
+		END IF
+	LOOP UNTIL xxx => 5
+	IF gamestatus = 2 THEN GOSUB beginendgamecollapse
 	RETURN
 END IF
 LET eventtitle$ = demonname$(playerturn) + " IS OPENING EXIT " + LTRIM$(STR$(xx)) + ":"
@@ -946,6 +1111,18 @@ LET eventdata$ = "exit progress is " + LTRIM$(STR$(exitlevel(xx))) + " out of " 
 LET eventnumber = 0
 GOSUB consoleprinter
 LET message$ = "exit " + LTRIM$(STR$(xx)) + " is now opening " + LTRIM$(STR$(exitlevel(xx))) + "/" + LTRIM$(STR$(exitgatetimertotal))
+GOSUB displaymessage
+RETURN
+
+beginendgamecollapse:
+REM begins the end game collapse
+LET gamestatus = 3
+LET endgamecollapseturns = 1
+LET eventtitle$ = "END GAME COLLAPSE:"
+LET eventdata$ =  LTRIM$(STR$(endgamecollapseturns)) + "/" + LTRIM$(STR$(endgamecollapsetotal)) + " turns remain"
+LET eventnumber = 0
+GOSUB consoleprinter
+LET message$ = "end game collapse " + LTRIM$(STR$(endgamecollapseturns)) + "/" + LTRIM$(STR$(endgamecollapsetotal))
 GOSUB displaymessage
 RETURN
 
@@ -958,7 +1135,7 @@ LET eventtitle$ = demonname$(playerturn) + " STRUGGLED TO STAY ALIVE:"
 LET eventdata$ = demonname$(playerturn) + " has " + LTRIM$(STR$(demontraptime(playerturn))) + " out of " + LTRIM$(STR$(trapstagelength)) + " turns to be saved"
 LET eventnumber = 0
 GOSUB consoleprinter
-LET message$ = "You struggled to remain alive " + LTRIM$(STR$(demontraptime(playerturn))) + "/" + LTRIM$(STR$(trapstagelength))
+LET message$ = "you struggled to remain alive " + LTRIM$(STR$(demontraptime(playerturn))) + "/" + LTRIM$(STR$(trapstagelength))
 GOSUB displaymessage
 RETURN
 
@@ -968,7 +1145,7 @@ LET x = INT(RND * 100) + 1
 LET turnmoves = turnmoves - 1
 IF x < 5 THEN
 	REM sucessful de-trap
-	LET message$ = "Your escape attempt was succesful"
+	LET message$ = "your escape attempt was succesful"
 	GOSUB displaymessage
 	LET eventtitle$ = demonname$(playerturn) + " UN-TRAPPED THEMSELVES:"
 	LET eventdata$ = demonname$(playerturn) + " is now hurt"
@@ -981,7 +1158,7 @@ IF x < 5 THEN
 ELSE
 	REM failure!
 	LET demonescapeattempt(playerturn) = demonescapeattempt(playerturn) + 1
-	LET message$ = "Your escape attempt failed " + LTRIM$(STR$(demonescapeattempt(playerturn))) + "/" + LTRIM$(STR$(totaldemonesc))
+	LET message$ = "your escape attempt failed " + LTRIM$(STR$(demonescapeattempt(playerturn))) + "/" + LTRIM$(STR$(totaldemonesc))
 	GOSUB displaymessage
 	LET eventtitle$ = demonname$(playerturn) + " UN-TRAP ATTEMPT FAILED:"
 	LET eventdata$ = demonname$(playerturn) + " is still trapped"
@@ -997,7 +1174,7 @@ ELSE
 		LET eventdata$ = demonname$(playerturn) + " will need saving in " + LTRIM$(STR$(trapstagelength)) + " turns"
 		LET eventnumber = 0
 		GOSUB consoleprinter
-		LET message$ = "You are on trap stage 2"
+		LET message$ = "you are on trap stage 2"
 		GOSUB displaymessage
 	END IF
 END IF
@@ -1091,6 +1268,19 @@ LET eventtitle$ = demonname$(playerturn) + " UN-TRAPS " + demonname$(y) + ":"
 LET eventdata$ = demonname$(y) + " is now hurt"
 LET eventnumber = 0
 GOSUB consoleprinter
+LET heromessagetotal = heromessagetotal + 1
+LET heromessage$(heromessagetotal) = demonname$(y) + " is now untrapped"
+LET xx = 0
+DO
+	LET xx = xx + 1
+	IF xx <> playerturn AND xx <> y AND xx <> 5 THEN
+		LET demonmessage(xx) = demonmessage(xx) + 1
+		IF xx = 1 THEN LET demonmessage1$(demonmessage(xx)) = demonname$(playerturn) + " has untrapped " + demonname$(y)
+		IF xx = 2 THEN LET demonmessage2$(demonmessage(xx)) = demonname$(playerturn) + " has untrapped " + demonname$(y)
+		IF xx = 3 THEN LET demonmessage3$(demonmessage(xx)) = demonname$(playerturn) + " has untrapped " + demonname$(y)
+		IF xx = 4 THEN LET demonmessage4$(demonmessage(xx)) = demonname$(playerturn) + " has untrapped " + demonname$(y)
+	END IF
+LOOP UNTIL xx => 5
 LET demonstatus(y) = 2
 LET demonstruggle(y) = 0
 LET demonrecover(y) = 0
@@ -1127,8 +1317,22 @@ IF beconhealth(currentbecon) <= 0 THEN
 	LET eventdata$ = "becon " + LTRIM$(STR$(currentbecon)) + " is now broken"
 	LET eventnumber = 0
 	GOSUB consoleprinter
-	LET message$ = "You broke the becon"
+	LET message$ = "you broke becon " + LTRIM$(STR$(currentbecon))
 	GOSUB displaymessage
+	REM message for hero
+	LET heromessagetotal = heromessagetotal + 1
+	LET heromessage$(heromessagetotal) = "becon " + LTRIM$(STR$(currentbecon)) + " is now broken"
+	LET x = 0
+	DO
+		LET x = x + 1
+		IF x <> playerturn AND x <> 5 THEN
+			LET demonmessage(x) = demonmessage(x) + 1
+			IF x = 1 THEN LET demonmessage1$(demonmessage(x)) = "becon " + LTRIM$(STR$(currentbecon)) + " is now broken"
+			IF x = 2 THEN LET demonmessage2$(demonmessage(x)) = "becon " + LTRIM$(STR$(currentbecon)) + " is now broken"
+			IF x = 3 THEN LET demonmessage3$(demonmessage(x)) = "becon " + LTRIM$(STR$(currentbecon)) + " is now broken"
+			IF x = 4 THEN LET demonmessage4$(demonmessage(x)) = "becon " + LTRIM$(STR$(currentbecon)) + " is now broken"
+		END IF
+	LOOP UNTIL x => 5
 	REM checks if enough becons are active
 	IF beconexit =< 0 THEN IF gamestatus = 1 THEN GOSUB startendgame
 	RETURN
@@ -1137,7 +1341,7 @@ LET eventtitle$ = demonname$(playerturn) + " HAS DAMAGED BECON " + LTRIM$(STR$(c
 LET eventdata$ = "becon " + LTRIM$(STR$(currentbecon)) + " health is now " + LTRIM$(STR$(beconhealth(currentbecon))) + "/" + LTRIM$(STR$(beconhealthtotal))
 LET eventnumber = 0
 GOSUB consoleprinter
-LET message$ = "You damaged the becon " + LTRIM$(STR$(beconhealth(currentbecon))) + "/" + LTRIM$(STR$(beconhealthtotal))
+LET message$ = "you damaged the becon " + LTRIM$(STR$(beconhealth(currentbecon))) + "/" + LTRIM$(STR$(beconhealthtotal))
 GOSUB displaymessage
 RETURN
 
@@ -1149,7 +1353,7 @@ LET eventtitle$ = demonname$(playerturn) + " HAS STRUGGLED:"
 LET eventdata$ = LTRIM$(STR$(demonstruggle(playerturn))) + "/5"
 LET eventnumber = 0
 GOSUB consoleprinter
-LET message$ = "You have struggled " + LTRIM$(STR$(demonstruggle(playerturn))) + "/" + LTRIM$(STR$(demonstruggletotal))
+LET message$ = "you have struggled " + LTRIM$(STR$(demonstruggle(playerturn))) + "/" + LTRIM$(STR$(demonstruggletotal))
 GOSUB displaymessage
 IF demonstruggle(playerturn) < 5 THEN RETURN: REM returns for if demon needs to struggle more
 REM demon has struggled enough to get away
@@ -1162,9 +1366,9 @@ GOSUB consoleprinter
 LET struggledrop = 1
 GOSUB herodropdemon
 LET struggledrop = 0
-LET message$ = "You broke free from " + heroname$
+LET message$ = "you broke free from " + heroname$
 GOSUB displaymessage
-LET message$ = "You gain " + LTRIM$(STR$(demonmovetotal + 1)) + " extra moves"
+LET message$ = "you gain " + LTRIM$(STR$(demonmovetotal + 1)) + " extra moves"
 GOSUB displaymessage
 RETURN
 
@@ -1203,7 +1407,7 @@ IF demonrecover(x) > demonrecovertotal - 1 THEN
 		IF x = 2 THEN LET demonmessage2$(demonmessage(x)) = "you have been half healed by " + demonname$(playerturn) 
 		IF x = 3 THEN LET demonmessage3$(demonmessage(x)) = "you have been half healed by " + demonname$(playerturn) 
 		IF x = 4 THEN LET demonmessage4$(demonmessage(x)) = "you have been half healed by " + demonname$(playerturn) 
-		LET message$ = "You have recovered " + demonname$(x) + " "+  + LTRIM$(STR$(demonrecovertotal)) + "/" +  LTRIM$(STR$(demonrecovertotal))
+		LET message$ = "you have recovered " + demonname$(x) + " "+  + LTRIM$(STR$(demonrecovertotal)) + "/" +  LTRIM$(STR$(demonrecovertotal))
 		GOSUB displaymessage
 		LET hud = 1
 		RETURN
@@ -1225,7 +1429,7 @@ IF demonrecover(x) > demonrecovertotal - 1 THEN
 		IF x = 2 THEN LET demonmessage2$(demonmessage(x)) = "you have been fully healed by " + demonname$(playerturn) 
 		IF x = 3 THEN LET demonmessage3$(demonmessage(x)) = "you have been fully healed by " + demonname$(playerturn) 
 		IF x = 4 THEN LET demonmessage4$(demonmessage(x)) = "you have been fully healed by " + demonname$(playerturn) 
-		LET message$ = "You have recovered " + demonname$(x) + " "+  + LTRIM$(STR$(demonrecovertotal)) + "/" + LTRIM$(STR$(demonrecovertotal))
+		LET message$ = "you have recovered " + demonname$(x) + " "+  + LTRIM$(STR$(demonrecovertotal)) + "/" + LTRIM$(STR$(demonrecovertotal))
 		GOSUB displaymessage
 		LET hud = 1
 		RETURN
@@ -1236,7 +1440,7 @@ IF x = 1 THEN LET demonmessage1$(demonmessage(x)) = "you have been healed by " +
 IF x = 2 THEN LET demonmessage2$(demonmessage(x)) = "you have been healed by " + demonname$(playerturn) + " " + LTRIM$(STR$(demonrecover(x))) + "/" + LTRIM$(STR$(demonrecovertotal))
 IF x = 3 THEN LET demonmessage3$(demonmessage(x)) = "you have been healed by " + demonname$(playerturn) + " " + LTRIM$(STR$(demonrecover(x))) + "/" + LTRIM$(STR$(demonrecovertotal))
 IF x = 4 THEN LET demonmessage4$(demonmessage(x)) = "you have been healed by " + demonname$(playerturn) + " " + LTRIM$(STR$(demonrecover(x))) + "/" + LTRIM$(STR$(demonrecovertotal))
-LET message$ = "You have recovered " + demonname$(x) + " " + LTRIM$(STR$(demonrecover(x))) + "/" + LTRIM$(STR$(demonrecovertotal))
+LET message$ = "you have recovered " + demonname$(x) + " " + LTRIM$(STR$(demonrecover(x))) + "/" + LTRIM$(STR$(demonrecovertotal))
 GOSUB displaymessage
 LET hud = 1
 RETURN
@@ -1246,13 +1450,13 @@ REM demon recovers itself
 IF demonrecover(playerturn) < demonrecovertotal - 1 THEN
 	LET demonrecover(playerturn) = demonrecover(playerturn) + 1
 	LET turnmoves = turnmoves - 1
-	LET message$ = "You have recovered " + LTRIM$(STR$(demonrecover(playerturn))) + "/" + LTRIM$(STR$(demonrecovertotal))
+	LET message$ = "you have recovered " + LTRIM$(STR$(demonrecover(playerturn))) + "/" + LTRIM$(STR$(demonrecovertotal))
 	LET eventtitle$ = demonname$(playerturn) + " HAS RECOVERED THEMSELVES: "
 	LET eventdata$ = LTRIM$(STR$(demonrecover(playerturn))) + "/" + LTRIM$(STR$(demonrecovertotal))
 	LET eventnumber = 0
 	GOSUB consoleprinter
 ELSE
-	LET message$ = "Cannot recover! Find help!"
+	LET message$ = "cannot recover! find help!"
 	LET eventtitle$ = demonname$(playerturn) + " CAN NOT RECOVER: "
 	LET eventdata$ = LTRIM$(STR$(demonrecover(playerturn))) + "/" + LTRIM$(STR$(demonrecovertotal))
 	LET eventnumber = 0
@@ -1390,6 +1594,17 @@ IF demonhealth(grabbeddemon) = 3 THEN
 	LET eventdata$ = demonname$(grabbeddemon) + " health is now 2"
 	LET eventnumber = 0
 	GOSUB consoleprinter
+	LET x = 0
+	DO
+		LET x = x + 1
+		IF x <> grabbeddemon AND x <> 5 THEN
+			LET demonmessage(x) = demonmessage(x) + 1
+			IF x = 1 THEN LET demonmessage1$(demonmessage(x)) = demonname$(grabbeddemon) + " has been trapped"
+			IF x = 2 THEN LET demonmessage2$(demonmessage(x)) = demonname$(grabbeddemon) + " has been trapped"
+			IF x = 3 THEN LET demonmessage3$(demonmessage(x)) = demonname$(grabbeddemon) + " has been trapped"
+			IF x = 4 THEN LET demonmessage4$(demonmessage(x)) = demonname$(grabbeddemon) + " has been trapped"
+		END IF
+	LOOP UNTIL x >= 5
 	RETURN
 END IF
 IF demonhealth(grabbeddemon) = 2 THEN
@@ -1401,6 +1616,17 @@ IF demonhealth(grabbeddemon) = 2 THEN
 	LET eventdata$ = demonname$(grabbeddemon) + " health is now 1"
 	LET eventnumber = 0
 	GOSUB consoleprinter
+	LET x = 0
+	DO
+		LET x = x + 1
+		IF x <> grabbeddemon AND x <> 5 THEN
+			LET demonmessage(x) = demonmessage(x) + 1
+			IF x = 1 THEN LET demonmessage1$(demonmessage(x)) = demonname$(grabbeddemon) + " has been trapped for a second time"
+			IF x = 2 THEN LET demonmessage2$(demonmessage(x)) = demonname$(grabbeddemon) + " has been trapped for a second time"
+			IF x = 3 THEN LET demonmessage3$(demonmessage(x)) = demonname$(grabbeddemon) + " has been trapped for a second time"
+			IF x = 4 THEN LET demonmessage4$(demonmessage(x)) = demonname$(grabbeddemon) + " has been trapped for a second time"
+		END IF
+	LOOP UNTIL x >= 5
 	RETURN
 END IF
 IF demonhealth(grabbeddemon) = 1 THEN
@@ -1829,7 +2055,7 @@ GOSUB consoleprinter
 RETURN
 
 moveplayerright:
-REM moves a player left
+REM moves a player right
 LET locx = locx + 1
 LET playerlocx(playerturn) = playerlocx(playerturn) + 1
 LET newtile = currenttile + 1
@@ -1848,7 +2074,7 @@ GOSUB consoleprinter
 RETURN
 
 moveplayerleft:
-REM moves a player right
+REM moves a player left
 LET locx = locx - 1
 LET playerlocx(playerturn) = playerlocx(playerturn) - 1
 LET newtile = currenttile - 1
@@ -1919,6 +2145,8 @@ DO
 		IF maptiletype(x) = 30 THEN _PUTIMAGE (tilelocx, tilelocy), herocarrytile
 		IF maptiletype(x) = 31 THEN _PUTIMAGE (tilelocx, tilelocy), deathtile
 		IF maptiletype(x) = 32 THEN _PUTIMAGE (tilelocx, tilelocy), exitavailabletile
+		IF maptiletype(x) = 33 THEN _PUTIMAGE (tilelocx, tilelocy), trapdooropentile
+		IF maptiletype(x) = 34 THEN _PUTIMAGE (tilelocx, tilelocy), trapdoorclosedtile
 		IF x = currenttile THEN _PUTIMAGE (tilelocx, tilelocy), highlighttile
 	END IF
 	IF tilerow => maptilex THEN
@@ -2037,6 +2265,8 @@ LET demon4trappedtile = _LOADIMAGE(dloc$ + "demon4-trapped-tile.png")
 LET herocarrytile = _LOADIMAGE(dloc$ + "hero-carry-tile.png")
 LET deathtile = _LOADIMAGE(dloc$ + "death-tile.png")
 LET highlighttile = _LOADIMAGE(dloc$ + "highlight-tile.png")
+LET trapdooropentile = _LOADIMAGE(dloc$ + "trapdoor-open-tile.png")
+LET trapdoorclosedtile = _LOADIMAGE(dloc$ + "trapdoor-closed-tile.png")
 LET eventtitle$ = "GRAPHICAL ASSETS LOADED"
 LET eventdata$ = ""
 LET eventnumber = 0
