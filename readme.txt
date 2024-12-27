@@ -1,6 +1,26 @@
 ALIVE BY MOONLIGHT!
 by Studio Pond
 
+27/12/2024 - Update 0.1.3
+NEW FEATURES
+- Turn screen to mark when a player's turn has begun.
+- Lighting and visibility.
+- Highlight support.
+- Highlight for Demon players when a Demon is trapped or downed.
+- Highlight for Hero players when a Demon us untrapped.
+- Highlight for when a Becon is destroyed.
+- Highlight for when the Exits are available (permanent for Hero when they're available.)
+BUG FIXES
+- Fixed a bug where the game would inform players about exits being available when the Hero closed the trapdoor during the endgame and endgame collapse.
+TWEAKS
+- Version number is now displayed on title screen.
+- When a trapped Demon player reaches trap stage 2 or dies, an extra unit is added to the Hero trap count.
+
+23/12/2024 - Update 0.1.2
+BUG FIXES
+- Fixed an issue where amount of Becons for Demons to destroy was only set at 2 instead of 5.
+- Fixed an issue where the amount of turns available during the end game collapse was set to 5 instead of 30.
+
 23/12/2024 - Update 0.1.1
 NEW FEATURES
 - Added trapdoor mechanics.
@@ -37,7 +57,5 @@ Perks
 AI control for demons or killers
 Multiplayer
 Sound
-Visibility limiter
-Auras alternative
 Blood/scratch marks alternative
 Player points
