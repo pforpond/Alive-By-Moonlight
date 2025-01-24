@@ -1,6 +1,17 @@
 ALIVE BY MOONLIGHT!
 by Studio Pond
 
+24/01/2025 - Update 0.1.4
+NEW FEATURES
+- Hero can now repair Becons 8 times each.
+- Off screen highlights are now given their own pop up bubble.
+BUG FIXES
+- Fixed issue where map drawing routine would draw a tile regardless if it was within the window or not.
+- Fixed issue where Hero player highlights were actually the highlights for Demon 1.
+TWEAKS
+- Highlights for all active Becons for the Hero player.
+- Highlights for all available Traps whilst carrying a Demon for the Hero player.
+
 27/12/2024 - Update 0.1.3
 NEW FEATURES
 - Turn screen to mark when a player's turn has begun.

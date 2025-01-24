@@ -15,7 +15,7 @@ LET resy = 288: REM game y resolution
 LET dloc$ = "moondata/": REM game data folder
 LET autoupdate = 666: REM sets auto update value
 LET checkupdatelink$ = "https://github.com/pforpond/Alive-By-Moonlight/raw/main/update/checkupdate.ddf"
-LET versionno$ = "0.1.3"
+LET versionno$ = "0.1.4"
 _ALLOWFULLSCREEN _OFF: REM block alt-enter
 REM check os
 IF INSTR(_OS$, "[WINDOWS]") THEN LET ros$ = "win"
@@ -67,6 +67,7 @@ DIM exittile(2) AS INTEGER
 GOSUB generategamevalues
 DIM maptiletype(maptilex * maptiley) AS INTEGER
 DIM becontile(beconno) AS INTEGER
+DIM beconrepair(beconno) AS INTEGER
 DIM lighttilemap(maptilex * maptiley) AS INTEGER
 DIM demon1highlights(maptilex * maptiley) AS INTEGER
 DIM demon2highlights(maptilex * maptiley) AS INTEGER
@@ -208,16 +209,22 @@ LET tileresx = 25: REM tile x resolution
 LET tileresy = 25: REM tile y resolution
 LET maptilex = 25: REM number of tiles on map (x)
 LET maptiley = 25: REM number of tiles on map (y)
+LET auraresx = 27: REM recolution of aura tile
+LET auraresy = 27: REM resolution of aura tile
+LET auraposx = 1: REM position of tile within aura
+LET auraposy = 1: REM position of tile within aura
 LET beconno = 7: REM number of becons
 LET beconexit = 5: REM number of becons to complete
 LET trapno = 8: REM number of traps
 LET exitno = 2: REM number of exits
+LET beconrepairlimit = 8: REM number of times the hero can repair a becon
 LET herotrapno = 0: REM number of demons hero has trapped
 LET playerturn = 1: REM player to start on. 1 = demon1. 2 = demon2. 3 = demon3. 4 = demon4. 5 = hero.
 LET demonstruggletotal = 5: REM total amount of struggles needed to escape hero
 LET demonrecovertotal = 10: REM total amont of recovery needed to restore a health state
 LET becondamage = 5: REM amount of damage demon does to a becon
 LET becondamagecrit = 7: REM amount of damage demon does to a becon (critical hit)
+LET beconrepairamount = 10: REM amount of repair the hero does to a becon
 LET beconhealthtotal = 100: REM total amount of health a becon has
 LET trapstagelength = 10: REM amount of turns a trap stage takes
 LET totaldemonesc = 3: REM number of attempts to escape first trap
@@ -569,30 +576,92 @@ LOOP
 
 markhighlights:
 REM highlights for loud noises and actions of interest
-IF playerturn = 1 THEN
-	FOR x = 1 TO (maptilex * maptiley)
-		IF demon1highlights(x) = 1 THEN LET lighttilemap(x) = 0
-	NEXT x
-END IF
-IF playerturn = 2 THEN
-	FOR x = 1 TO (maptilex * maptiley)
-		IF demon2highlights(x) = 1 THEN LET lighttilemap(x) = 0
-	NEXT x
-END IF
-IF playerturn = 3 THEN
-	FOR x = 1 TO (maptilex * maptiley)
-		IF demon3highlights(x) = 1 THEN LET lighttilemap(x) = 0
-	NEXT x
-END IF
-IF playerturn = 4 THEN
-	FOR x = 1 TO (maptilex * maptiley)
-		IF demon4highlights(x) = 1 THEN LET lighttilemap(x) = 0
-	NEXT x
-END IF
+LET x = 0
+LET carragereturn = 0
+LET tilerow = 0
+LET drawpass1 = 0
+LET drawpass2 = 0
+LET camerax = -(locx)
+LET camerax = (camerax * tileresx) - (tileresx / 2)
+LET cameray = -(locy)
+LET cameray = (cameray * tileresy) - (tileresy / 2)
+REM mark hero specific highlights
 IF playerturn = 5 THEN
-	FOR x = 1 TO (maptilex * maptiley)
-		IF herohighlights(x) = 1 THEN LET lighttilemap(x) = 0
-	NEXT x
+	DO
+		LET x = x + 1
+		IF herostatus = 1 THEN IF maptiletype(x) = 2 THEN LET herohighlights(x) = 1
+		IF herostatus = 2 THEN IF maptiletype(x) = 4 THEN LET herohighlights(x) = 1
+	LOOP UNTIL x => (maptilex * maptiley)
+END IF
+REM generic all player highlights
+LET x = 0
+DO
+	LET x = x + 1
+	LET tilerow = tilerow + 1
+    LET tilelocx = (camerax + (tileresx * (tilerow - 1))) + ((resx / 2) + (tileresx / 2))
+    LET tilelocy = (cameray + (tileresy * carragereturn)) + ((resy / 2) + (tileresy / 2))
+    IF tilelocx > 0 - tileresx AND tilelocx < resx THEN LET drawpass1 = 1
+    IF tilelocy > 0 - tileresy AND tilelocy < resy THEN LET drawpass2 = 1
+	IF playerturn = 1 THEN 
+		IF demon1highlights(x) = 1 THEN 
+			IF drawpass1 = 1 AND drawpass2 = 1 THEN
+				LET lighttilemap(x) = 0
+			ELSE
+				LET lighttilemap(x) = -666
+			END IF
+		END IF
+	END IF
+	IF playerturn = 2 THEN 
+		IF demon2highlights(x) = 1 THEN 
+			IF drawpass1 = 1 AND drawpass2 = 1 THEN
+				LET lighttilemap(x) = 0
+			ELSE
+				LET lighttilemap(x) = -666
+			END IF
+		END IF
+	END IF
+	IF playerturn = 3 THEN 
+		IF demon3highlights(x) = 1 THEN 
+			IF drawpass1 = 1 AND drawpass2 = 1 THEN
+				LET lighttilemap(x) = 0
+			ELSE
+				LET lighttilemap(x) = -666
+			END IF
+		END IF
+	END IF
+	IF playerturn = 4 THEN 
+		IF demon4highlights(x) = 1 THEN 
+			IF drawpass1 = 1 AND drawpass2 = 1 THEN
+				LET lighttilemap(x) = 0
+			ELSE
+				LET lighttilemap(x) = -666
+			END IF
+		END IF
+	END IF
+	IF playerturn = 5 THEN 
+		IF herohighlights(x) = 1 THEN 
+			IF drawpass1 = 1 AND drawpass2 = 1 THEN
+				LET lighttilemap(x) = 0
+			ELSE
+				LET lighttilemap(x) = -666
+			END IF
+		END IF
+	END IF
+	IF tilerow >= maptilex THEN
+        REM move to next row of tiles
+        LET carragereturn = carragereturn + 1
+        LET tilerow = 0
+    END IF
+    LET drawpass1 = 0: LET drawpass2 = 0
+LOOP UNTIL x >= (maptilex * maptiley)
+REM unmark hero specific highlights
+LET x = 0
+IF playerturn = 5 THEN
+	DO
+		LET x = x + 1
+		IF herostatus = 1 THEN IF maptiletype(x) = 2 THEN LET herohighlights(x) = 0
+		IF herostatus = 2 THEN IF maptiletype(x) = 4 THEN LET herohighlights(x) = 0
+	LOOP UNTIL x => (maptilex * maptiley)
 END IF
 RETURN
 
@@ -743,11 +812,12 @@ IF hud = 1 THEN
             END IF
         END IF
     END IF
-    REM hero hitting and grabbing demon
+    REM hero hitting and grabbing demon and repairing becons
     IF turnmoves > 0 AND playerturn = 5 AND herostatus = 1 THEN
         IF herohitup > 0 OR herohitdown > 0 OR herohitleft > 0 OR herohitright > 0 THEN LET movelist$ = movelist$ + "H=hit | "
         IF herograbup > 0 OR herograbdown > 0 OR herogrableft > 0 OR herograbright > 0 THEN LET movelist$ = movelist$ + "G=grab | "
         IF herocloseup > 0 OR heroclosedown > 0 OR herocloseleft > 0 OR herocloseright > 0 THEN LET movelist$ = movelist$ + "C=close | "
+        IF herorepairbeconup > 0 OR herorepairbecondown > 0 OR herorepairbeconleft > 0 OR herorepairbeconright > 0 THEN LET movelist$ = movelist$ + "R=repair | "
     END IF
     REM hero is in grab mode
     IF playerturn = 5 AND herostatus = 2 THEN
@@ -828,6 +898,14 @@ IF hud = 11 THEN
     IF herocloseright > 0 THEN LET movelist$ = movelist$ + "D=close trapdoor right | "
     LET movelist$ = movelist$ + "B=back"
 END IF
+IF hud = 12 THEN
+    REM hero repairing becon
+    IF herorepairbeconup > 0 THEN LET movelist$ = movelist$ + "W=repair becon up | "
+    IF herorepairbecondown > 0 THEN LET movelist$ = movelist$ + "S=repair becon down | "
+    IF herorepairbeconleft > 0 THEN LET movelist$ = movelist$ + "A=repair becon left | "
+    IF herorepairbeconright > 0 THEN LET movelist$ = movelist$ + "D=repair becon right | "
+    LET movelist$ = movelist$ + "B=back"
+END IF
 _PRINTSTRING (1, resy - 15), movelist$
 COLOR _RGBA(255, 255, 255, 255), _RGBA(0, 0, 0, 255)
 RETURN
@@ -871,6 +949,10 @@ LET herocloseup = 0
 LET heroclosedown = 0
 LET herocloseleft = 0
 LET herocloseright = 0
+LET herorepairbeconup = 0
+LET herorepairbecondown = 0
+LET herorepairbeconleft = 0
+LET herorepairbeconright = 0
 REM calculates any possible actions
 REM movement
 IF maptiletype(currenttile - 1) = 1 THEN LET moveleft = 1
@@ -992,6 +1074,27 @@ IF playerturn = 5 THEN
     IF maptiletype(currenttile + 1) = 33 THEN LET herocloseright = 1
     IF maptiletype(currenttile - maptilex) = 33 THEN LET herocloseup = 1
     IF maptiletype(currenttile + maptilex) = 33 THEN LET heroclosedown = 1
+    REM checks for a becon that can be repaired
+    IF maptiletype(currenttile - 1) = 2 THEN
+		FOR x = 1 TO beconno
+			IF becontile(x) = (currenttile - 1) AND beconrepair(x) < beconrepairlimit AND beconhealth(x) < beconhealthtotal THEN LET herorepairbeconleft = 1
+		NEXT x
+    END IF
+    IF maptiletype(currenttile + 1) = 2 THEN
+		FOR x = 1 TO beconno
+			IF becontile(x) = (currenttile + 1) AND beconrepair(x) < beconrepairlimit AND beconhealth(x) < beconhealthtotal THEN LET herorepairbeconright = 1
+		NEXT x
+    END IF
+    IF maptiletype(currenttile - maptilex) = 2 THEN
+		FOR x = 1 TO beconno
+			IF becontile(x) = (currenttile - maptilex) AND beconrepair(x) < beconrepairlimit AND beconhealth(x) < beconhealthtotal THEN LET herorepairbeconup = 1
+		NEXT x
+    END IF
+    IF maptiletype(currenttile + maptilex) = 2 THEN
+		FOR x = 1 TO beconno
+			IF becontile(x) = (currenttile + maptilex) AND beconrepair(x) < beconrepairlimit AND beconhealth(x) < beconhealthtotal THEN LET herorepairbecondown = 1
+		NEXT x
+    END IF
 END IF
 RETURN
 
@@ -1024,11 +1127,12 @@ IF hud = 1 THEN
         IF turnmoves > 0 THEN IF herotrapup > 0 OR herotrapdown > 0 OR herotrapleft > 0 OR herotrapright > 0 THEN IF a = 84 OR a = 116 THEN hud = 6: GOTO endinput
     END IF
     IF a = 88 OR a = 120 THEN LET turncomplete = 1: GOTO endinput: REM end turn
-    REM hero hitting or grabbing demon
+    REM hero hitting or grabbing demon or repairing becon
     IF turnmoves > 0 AND playerturn = 5 THEN
         IF herohitup > 0 OR herohitdown > 0 OR herohitleft > 0 OR herohitright > 0 THEN IF a = 72 OR a = 104 THEN LET hud = 4: GOTO endinput
         IF herograbup > 0 OR herograbdown > 0 OR herogrableft > 0 OR herograbright > 0 THEN IF a = 71 OR a = 103 THEN LET hud = 5: GOTO endinput
         IF herocloseup > 0 OR heroclosedown > 0 OR herocloseleft > 0 OR herocloseright > 0 THEN IF a = 67 OR a = 99 THEN LET hud = 11: GOTO endinput
+        IF herorepairbeconup > 0 OR herorepairbecondown > 0 OR herorepairbeconleft > 0 OR herorepairbeconright > 0 THEN IF a = 82 OR a = 114 THEN LET hud = 12: GOTO endinput
     END IF
     IF devmode = 1 THEN IF a = 90 OR a = 122 THEN LET hud = 3: GOTO endinput: REM developer movement (destructive)
     GOTO endinput
@@ -1128,8 +1232,42 @@ IF hud = 11 THEN
     IF a = 66 OR a = 98 THEN LET hud = 1: REM back
     GOTO endinput
 END IF
+IF hud = 12 THEN
+	REM hero closes the trapdoor
+    IF herorepairbeconup > 0 THEN IF a = 87 OR a = 119 THEN GOSUB herorepairbecon
+    IF herorepairbecondown > 0 THEN IF a = 83 OR a = 115 THEN GOSUB herorepairbecon
+    IF herorepairbeconleft > 0 THEN IF a = 65 OR a = 97 THEN GOSUB herorepairbecon
+    IF herorepairbeconright > 0 THEN IF a = 68 OR a = 100 THEN GOSUB herorepairbecon
+    IF a = 66 OR a = 98 THEN LET hud = 1: REM back
+    GOTO endinput
+END IF
 endinput:
 _KEYCLEAR
+RETURN
+
+herorepairbecon:
+REM hero repairs a becon
+IF a = 87 OR a = 119 THEN LET y = currenttile - maptilex
+IF a = 83 OR a = 115 THEN LET y = currenttile + maptilex
+IF a = 65 OR a = 97 THEN LET y = currenttile - 1
+IF a = 68 OR a = 100 THEN LET y = currenttile + 1
+FOR x = 1 TO beconno
+	IF becontile(x) = y THEN
+		LET beconhealth(x) = beconhealth(x) + beconrepairamount
+		IF beconhealth(x) > 100 THEN LET beconhealth(x) = beconhealthtotal
+		LET beconrepair(x) = beconrepair(x) + 1
+		LET turnmoves = 0
+		LET hud = 1
+		REM tells console 
+		LET eventtitle$ = heroname$ + " HAS REPAIRED BECON " + LTRIM$(STR$(x)) + ":"
+		LET eventdata$ = "becon health is now " + LTRIM$(STR$(beconhealth(x))) + "/" + LTRIM$(STR$(beconhealthtotal))
+		LET eventnumber = 0
+		GOSUB consoleprinter
+		REM displays message
+		LET message$ = "becon repaired " + LTRIM$(STR$(beconhealth(x))) + "/" + LTRIM$(STR$(beconhealthtotal))
+		GOSUB displaymessage
+	END IF
+NEXT x
 RETURN
 
 heroclosetrapdoor:
@@ -2246,6 +2384,7 @@ LET camerax = -(locx)
 LET camerax = (camerax * tileresx) - (tileresx / 2)
 LET cameray = -(locy)
 LET cameray = (cameray * tileresy) - (tileresy / 2)
+REM main pass
 DO
     LET x = x + 1
     LET tilerow = tilerow + 1
@@ -2255,49 +2394,149 @@ DO
     IF tilelocy > 0 - tileresy AND tilelocy < resy THEN LET drawpass2 = 1
     IF drawpass1 = 1 AND drawpass2 = 1 THEN
         REM draws map tiles
-        IF maptiletype(x) = 1 THEN _PUTIMAGE (tilelocx, tilelocy), emptytile
-        IF maptiletype(x) = 2 THEN _PUTIMAGE (tilelocx, tilelocy), beconuncorrupttile
-        IF maptiletype(x) = 3 THEN _PUTIMAGE (tilelocx, tilelocy), beconcorrupttile
-        IF maptiletype(x) = 4 THEN _PUTIMAGE (tilelocx, tilelocy), traptile
-        IF maptiletype(x) = 5 THEN _PUTIMAGE (tilelocx, tilelocy), wallhorizontaltile
-        IF maptiletype(x) = 6 THEN _PUTIMAGE (tilelocx, tilelocy), wallverticaltile
-        IF maptiletype(x) = 7 THEN _PUTIMAGE (tilelocx, tilelocy), walltoplefttile
-        IF maptiletype(x) = 8 THEN _PUTIMAGE (tilelocx, tilelocy), walltoprighttile
-        IF maptiletype(x) = 9 THEN _PUTIMAGE (tilelocx, tilelocy), wallbottomlefttile
-        IF maptiletype(x) = 10 THEN _PUTIMAGE (tilelocx, tilelocy), wallbottomrighttile
-        IF maptiletype(x) = 11 THEN _PUTIMAGE (tilelocx, tilelocy), exitclosedtile
-        IF maptiletype(x) = 12 THEN _PUTIMAGE (tilelocx, tilelocy), exitopentile
-        IF maptiletype(x) = 13 THEN _PUTIMAGE (tilelocx, tilelocy), herotile
-        IF maptiletype(x) = 14 THEN _PUTIMAGE (tilelocx, tilelocy), demon1healthytile
-        IF maptiletype(x) = 15 THEN _PUTIMAGE (tilelocx, tilelocy), demon1hurttile
-        IF maptiletype(x) = 16 THEN _PUTIMAGE (tilelocx, tilelocy), demon1downtile
-        IF maptiletype(x) = 17 THEN _PUTIMAGE (tilelocx, tilelocy), demon1trappedtile
-        IF maptiletype(x) = 18 THEN _PUTIMAGE (tilelocx, tilelocy), demon2healthytile
-        IF maptiletype(x) = 19 THEN _PUTIMAGE (tilelocx, tilelocy), demon2hurttile
-        IF maptiletype(x) = 20 THEN _PUTIMAGE (tilelocx, tilelocy), demon2downtile
-        IF maptiletype(x) = 21 THEN _PUTIMAGE (tilelocx, tilelocy), demon2trappedtile
-        IF maptiletype(x) = 22 THEN _PUTIMAGE (tilelocx, tilelocy), demon3healthytile
-        IF maptiletype(x) = 23 THEN _PUTIMAGE (tilelocx, tilelocy), demon3hurttile
-        IF maptiletype(x) = 24 THEN _PUTIMAGE (tilelocx, tilelocy), demon3downtile
-        IF maptiletype(x) = 25 THEN _PUTIMAGE (tilelocx, tilelocy), demon3trappedtile
-        IF maptiletype(x) = 26 THEN _PUTIMAGE (tilelocx, tilelocy), demon4healthytile
-        IF maptiletype(x) = 27 THEN _PUTIMAGE (tilelocx, tilelocy), demon4hurttile
-        IF maptiletype(x) = 28 THEN _PUTIMAGE (tilelocx, tilelocy), demon4downtile
-        IF maptiletype(x) = 29 THEN _PUTIMAGE (tilelocx, tilelocy), demon4trappedtile
-        IF maptiletype(x) = 30 THEN _PUTIMAGE (tilelocx, tilelocy), herocarrytile
-        IF maptiletype(x) = 31 THEN _PUTIMAGE (tilelocx, tilelocy), deathtile
-        IF maptiletype(x) = 32 THEN _PUTIMAGE (tilelocx, tilelocy), exitavailabletile
-        IF maptiletype(x) = 33 THEN _PUTIMAGE (tilelocx, tilelocy), trapdooropentile
-        IF maptiletype(x) = 34 THEN _PUTIMAGE (tilelocx, tilelocy), trapdoorclosedtile
+        LET drawtilex = tilelocx
+        LET drawtiley = tilelocy
+        GOSUB drawmaintile
         IF x = currenttile THEN _PUTIMAGE (tilelocx, tilelocy), highlighttile
-        LINE (tilelocx, tilelocy)-(tilelocx + tileresx, tilelocy + tileresy), _RGBA(0, 0, 0, lighttilemap(x)), BF
-    END IF
+		LINE (tilelocx, tilelocy)-(tilelocx + tileresx, tilelocy + tileresy), _RGBA(0, 0, 0, lighttilemap(x)), BF
+	    END IF
     IF tilerow >= maptilex THEN
         REM move to next row of tiles
         LET carragereturn = carragereturn + 1
         LET tilerow = 0
     END IF
+    LET drawpass1 = 0: LET drawpass2 = 0
 LOOP UNTIL x >= (maptilex * maptiley)
+REM off screen highlights
+LET x = 0
+LET carragereturn = 0
+LET tilerow = 0
+DO
+	LET x = x + 1
+	LET tilerow = tilerow + 1
+	LET tilelocx = (camerax + (tileresx * (tilerow - 1))) + ((resx / 2) + (tileresx / 2))
+	LET tilelocy = (cameray + (tileresy * carragereturn)) + ((resy / 2) + (tileresy / 2))
+	IF lighttilemap(x) = -666 THEN GOSUB drawaurahighlight
+	IF tilerow >= maptilex THEN
+        REM move to next row of tiles
+        LET carragereturn = carragereturn + 1
+        LET tilerow = 0
+    END IF
+LOOP UNTIL x >= (maptilex * maptiley)
+RETURN
+
+drawaurahighlight:
+REM draws a highlight that is off the screen
+IF tilelocx > resx AND tilelocy > 0 AND tilelocy < resy THEN
+	REM right arrow
+	_PUTIMAGE (resx - tileresx, tilelocy), arrowrighttile
+	_PUTIMAGE (resx - (tileresx * 2), tilelocy), auratile
+	LET drawtilex = (resx - (tileresx * 2)) + auraposx
+	LET drawtiley = tilelocy + auraposy
+	GOSUB drawmaintile
+	RETURN
+END IF
+IF tilelocx < 0 AND tilelocy > 0 AND tilelocy < resy THEN
+	REM left arrow
+	_PUTIMAGE (40 + 1, tilelocy), arrowlefttile
+	_PUTIMAGE (40 + 1 + tileresx, tilelocy), auratile
+	LET drawtilex = 40 + 1 + tileresx + auraposx
+	LET drawtiley = tilelocy + auraposy
+	GOSUB drawmaintile
+	RETURN
+END IF
+IF tilelocy > resy AND tilelocx > 0 AND tilelocx < resx THEN
+	REM down arrow
+	_PUTIMAGE (tilelocx, resy - tileresy), arrowdowntile
+	_PUTIMAGE (tilelocx, resy - (tileresy * 2)), auratile
+	LET drawtilex = tilelocx + auraposx
+	LET drawtiley = (resy - (tileresy * 2)) + auraposy
+	GOSUB drawmaintile
+	RETURN
+END IF
+IF tilelocy < 0 AND tilelocx > 0 AND tilelocx < resx THEN
+	REM up arrow
+	_PUTIMAGE (tilelocx, 1), arrowuptile
+	_PUTIMAGE (tilelocx, 1 + tileresy), auratile
+	LET drawtilex = tilelocx + auraposx
+	LET drawtiley = 1 + tileresy + auraposy
+	GOSUB drawmaintile
+	RETURN
+END IF
+IF tilelocx < 0 AND tilelocy < 0 THEN
+	REM top left arrow
+	_PUTIMAGE (40 + 1, 1), arrowuptile
+	_PUTIMAGE (40 + 1, 1 + tileresy), auratile
+	LET drawtilex = 40 + 1 + auraposx
+	LET drawtiley = 1 + tileresy + auraposy
+	GOSUB drawmaintile
+	RETURN
+END IF
+IF tilelocx < 0 AND tilelocy > resy THEN
+	REM bottom left arrow
+	_PUTIMAGE (40 + 1, resy - tileresy), arrowdowntile
+	_PUTIMAGE (40 + 1, resy - (tileresy * 2)), auratile
+	LET drawtilex = 40 + 1 + auraposx
+	LET drawtiley = resy - (tileresy * 2) + auraposy
+	GOSUB drawmaintile
+	RETURN
+END IF
+IF tilelocx > resx AND tilelocy < 0 THEN
+	REM top right arrow
+	_PUTIMAGE (resx - tileresx, 1), arrowuptile
+	_PUTIMAGE (resx - tileresx, 1 + tileresy), auratile
+	LET drawtilex = resx - tileresx + auraposx
+	LET drawtiley = 1 + tileresy + auraposy
+	GOSUB drawmaintile
+	RETURN
+END IF
+IF tilelocx > resx AND tilelocy > resy THEN
+	REM bottom right arrow
+	_PUTIMAGE (resx - tileresx, resy - tileresy), arrowdowntile
+	_PUTIMAGE (resx - tileresx, resy - (tileresy * 2)), auratile
+	LET drawtilex = resx - tileresx + auraposx
+	LET drawtiley = resy - (tileresy * 2) + auraposy
+	GOSUB drawmaintile
+	RETURN
+END IF
+RETURN
+
+drawmaintile:
+REM draws all main tiles here
+IF maptiletype(x) = 1 THEN _PUTIMAGE (drawtilex, drawtiley), emptytile
+IF maptiletype(x) = 2 THEN _PUTIMAGE (drawtilex, drawtiley), beconuncorrupttile
+IF maptiletype(x) = 3 THEN _PUTIMAGE (drawtilex, drawtiley), beconcorrupttile
+IF maptiletype(x) = 4 THEN _PUTIMAGE (drawtilex, drawtiley), traptile
+IF maptiletype(x) = 5 THEN _PUTIMAGE (drawtilex, drawtiley), wallhorizontaltile
+IF maptiletype(x) = 6 THEN _PUTIMAGE (drawtilex, drawtiley), wallverticaltile
+IF maptiletype(x) = 7 THEN _PUTIMAGE (drawtilex, drawtiley), walltoplefttile
+IF maptiletype(x) = 8 THEN _PUTIMAGE (drawtilex, drawtiley), walltoprighttile
+IF maptiletype(x) = 9 THEN _PUTIMAGE (drawtilex, drawtiley), wallbottomlefttile
+IF maptiletype(x) = 10 THEN _PUTIMAGE (drawtilex, drawtiley), wallbottomrighttile
+IF maptiletype(x) = 11 THEN _PUTIMAGE (drawtilex, drawtiley), exitclosedtile
+IF maptiletype(x) = 12 THEN _PUTIMAGE (drawtilex, drawtiley), exitopentile
+IF maptiletype(x) = 13 THEN _PUTIMAGE (drawtilex, drawtiley), herotile
+IF maptiletype(x) = 14 THEN _PUTIMAGE (drawtilex, drawtiley), demon1healthytile
+IF maptiletype(x) = 15 THEN _PUTIMAGE (drawtilex, drawtiley), demon1hurttile
+IF maptiletype(x) = 16 THEN _PUTIMAGE (drawtilex, drawtiley), demon1downtile
+IF maptiletype(x) = 17 THEN _PUTIMAGE (drawtilex, drawtiley), demon1trappedtile
+IF maptiletype(x) = 18 THEN _PUTIMAGE (drawtilex, drawtiley), demon2healthytile
+IF maptiletype(x) = 19 THEN _PUTIMAGE (drawtilex, drawtiley), demon2hurttile
+IF maptiletype(x) = 20 THEN _PUTIMAGE (drawtilex, drawtiley), demon2downtile
+IF maptiletype(x) = 21 THEN _PUTIMAGE (drawtilex, drawtiley), demon2trappedtile
+IF maptiletype(x) = 22 THEN _PUTIMAGE (drawtilex, drawtiley), demon3healthytile
+IF maptiletype(x) = 23 THEN _PUTIMAGE (drawtilex, drawtiley), demon3hurttile
+IF maptiletype(x) = 24 THEN _PUTIMAGE (drawtilex, drawtiley), demon3downtile
+IF maptiletype(x) = 25 THEN _PUTIMAGE (drawtilex, drawtiley), demon3trappedtile
+IF maptiletype(x) = 26 THEN _PUTIMAGE (drawtilex, drawtiley), demon4healthytile
+IF maptiletype(x) = 27 THEN _PUTIMAGE (drawtilex, drawtiley), demon4hurttile
+IF maptiletype(x) = 28 THEN _PUTIMAGE (drawtilex, drawtiley), demon4downtile
+IF maptiletype(x) = 29 THEN _PUTIMAGE (drawtilex, drawtiley), demon4trappedtile
+IF maptiletype(x) = 30 THEN _PUTIMAGE (drawtilex, drawtiley), herocarrytile
+IF maptiletype(x) = 31 THEN _PUTIMAGE (drawtilex, drawtiley), deathtile
+IF maptiletype(x) = 32 THEN _PUTIMAGE (drawtilex, drawtiley), exitavailabletile
+IF maptiletype(x) = 33 THEN _PUTIMAGE (drawtilex, drawtiley), trapdooropentile
+IF maptiletype(x) = 34 THEN _PUTIMAGE (drawtilex, drawtiley), trapdoorclosedtile
 RETURN
 
 generatelight:
@@ -2460,6 +2699,11 @@ LET deathtile = _LOADIMAGE(dloc$ + "death-tile.png")
 LET highlighttile = _LOADIMAGE(dloc$ + "highlight-tile.png")
 LET trapdooropentile = _LOADIMAGE(dloc$ + "trapdoor-open-tile.png")
 LET trapdoorclosedtile = _LOADIMAGE(dloc$ + "trapdoor-closed-tile.png")
+LET auratile = _LOADIMAGE(dloc$ + "aura-tile.png")
+LET arrowuptile = _LOADIMAGE(dloc$ + "arrow-up.png")
+LET arrowdowntile = _LOADIMAGE(dloc$ + "arrow-down.png")
+LET arrowlefttile = _LOADIMAGE(dloc$ + "arrow-left.png")
+LET arrowrighttile = _LOADIMAGE(dloc$ + "arrow-right.png")
 LET eventtitle$ = "GRAPHICAL ASSETS LOADED"
 LET eventdata$ = ""
 LET eventnumber = 0
